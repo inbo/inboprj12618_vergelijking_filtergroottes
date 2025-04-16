@@ -1,0 +1,102 @@
+---
+title: "analysis_template"
+author: "Pieter Verschelde"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Element `r element`
+
+
+#### Verschil in filtergrootte voor `r element` in functie van de concentratie
+
+**Modelformule:**
+
+
+```{r, results = 'asis'}
+cat(paste(as.character(analysis_diff$formula)[c(2,1,3)], collapse  = " "), "\n")
+model_ok <- !all(is.na(analysis_diff$model_summary))
+```
+
+**Resultatentabel:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model_summary))
+if (model_ok) {
+  analysis_diff$model_summary$coefficients |>
+  add_significance_stars() |>
+  knitr::kable()
+}
+```
+
+**Residueel plot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model_summary))
+if (model_ok){
+  print(analysis_diff$plot_resid)
+}
+```
+
+**Predictieplot:**
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model_summary))
+if (model_ok){
+  print(analysis_diff$plot_fit)
+}
+
+```
+
+
+#### Analyse effect filtergroote op metingen van `r element`
+
+**Modelformule:**
+
+
+```{r, results = 'asis'}
+cat(paste(as.character(analysis_fmod$formula)[c(2,1,3)], collapse  = " "), "\n")
+model_ok <- !all(is.na(analysis_fmod$model))
+```
+
+**Resultatentabel:**
+
+
+```{r, results='asis'}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+   analysis_fmod$model$coefficients |>
+    as.data.frame() |>
+   add_significance_stars() |>
+   knitr::kable()
+}
+```
+
+**Residueel plot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+  print(analysis_fmod$plot_resid)
+}
+```
+
+**Predictieplot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+  print(analysis_fmod$plot_pred)
+}
+
+```
+
+#### Conclusie
+
+```{r}
+```
+

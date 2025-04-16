@@ -1,0 +1,95 @@
+---
+title: "Analyse validatie filters"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    number_sections: true
+    fig_caption: true
+#   code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      collapse = TRUE,
+                      comment = "#>")
+options(tidyverse.quiet = TRUE)
+
+
+#' Add significance stars to summary coefficients
+#'
+#' @param smrycoef A summary of the coefficients from a linear model
+#'
+#' @returns A tibble with the coefficients and significance stars
+#' @export
+#'
+add_significance_stars <- function(smrycoef) {
+  smrycoef <- smrycoef |> as.data.frame()
+  if (!("Pr(>|t|)" %in% colnames(smrycoef))) {
+    smrycoef <- smrycoef |>
+      mutate(`Pr(>|t|)` = 2 * pnorm(-abs(`t value`)))
+  }
+  smrycoef <- smrycoef |> 
+    mutate(sig = cut(`Pr(>|t|)`,
+                     breaks = c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+                     labels = c("***", "**", "*", ".", "")))
+  smrycoef
+}
+```
+
+## Inleiding
+
+```{r load_data}
+library(targets)
+library(tarchetypes)
+library(tidyverse)
+library(knitr)
+data <- tar_read(data_all, store = "_targets")
+```
+
+
+In dit document analyseren we de validatie filters die we hebben toegepast op de data die gegenereerd wordt door de ICP en IC toestellen in het labo.
+We hebben de volgende filters toegepast:
+
+- 0.45 micrometer
+- 0.20 micrometer
+
+Het aantal gebruikte filters had een bereik tussen `r range(data$n_filters, na.rm = TRUE)`.
+
+Voor de analyse wordt een onderscheid gemaakt tussen projectstalen en controlestalen.
+
+
+## data
+
+Het aantal beschikbare gegevens is:
+```{r data}
+data %>%
+  filter(!is.na(value), !is.na(filter)) |> 
+  group_by(type, element, filter) |> 
+  summarise(n = length(value), .groups = "drop") |>
+  pivot_wider(names_from = c(filter, type), values_from = n, values_fill = 0) |> 
+  knitr::kable()
+```
+
+## Analyse voor ieder element
+
+```{r analyseEl, echo=FALSE, message = FALSE, results='asis'}
+elements <- data |> pull(element) |> unique()
+for (element in elements) {
+  target_name_diff <- paste0("models_simple_diff_", element)
+  target_name_fmod <- paste0("models_simple_fmod_", element)
+  element_analysis_diff <- tar_read_raw(target_name_diff, store = "_targets")
+  element_analysis_fmod <- tar_read_raw(target_name_fmod, store = "_targets")
+  res <- knit_child('analysis_template.Rmd',
+                    envir = list(element = element,
+                                 analysis_diff = element_analysis_diff,
+                                 analysis_fmod = element_analysis_fmod),
+                    quiet = TRUE)
+  cat(res, sep = '\n')
+}
+
+```
+
+
+
