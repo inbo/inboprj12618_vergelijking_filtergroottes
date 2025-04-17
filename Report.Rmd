@@ -16,26 +16,6 @@ knitr::opts_chunk$set(echo = FALSE,
                       comment = "#>")
 options(tidyverse.quiet = TRUE)
 
-
-#' Add significance stars to summary coefficients
-#'
-#' @param smrycoef A summary of the coefficients from a linear model
-#'
-#' @returns A tibble with the coefficients and significance stars
-#' @export
-#'
-add_significance_stars <- function(smrycoef) {
-  smrycoef <- smrycoef |> as.data.frame()
-  if (!("Pr(>|t|)" %in% colnames(smrycoef))) {
-    smrycoef <- smrycoef |>
-      mutate(`Pr(>|t|)` = 2 * pnorm(-abs(`t value`)))
-  }
-  smrycoef <- smrycoef |> 
-    mutate(sig = cut(`Pr(>|t|)`,
-                     breaks = c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
-                     labels = c("***", "**", "*", ".", "")))
-  smrycoef
-}
 ```
 
 ## Inleiding
@@ -45,6 +25,7 @@ library(targets)
 library(tarchetypes)
 library(tidyverse)
 library(knitr)
+tar_source("source/add_significance_stars.R")
 data <- tar_read(data_all, store = "_targets")
 ```
 
@@ -71,6 +52,42 @@ data %>%
   pivot_wider(names_from = c(filter, type), values_from = n, values_fill = 0) |> 
   knitr::kable()
 ```
+
+## Analysestrategie
+
+Er wordt in dit document gekozen om de analyse te beperken tot het effect van filtergrootte, zonder rekening te houden met het aantal filters, en er worden ook enkel grondwaterstalen gebruikt voor de analyse. Daarnaast worden ook enkel projectstalen gebruikt, dus geen referentiestalen.
+
+Voor ieder element dat gemeten is op de IC en ICP toestellen worden 2 analyses uitgevoerd:
+
+### verschil van de log{10}-concentraties
+
+Het verschil van de log{10}-concentraties van alle elementen in functie van de gemiddelde log{10}-concentratie van beide filters voor ieder projectstaal.
+De formule van het model is:
+$$
+\log_{10}(y_{45}) - \log_{10}(y_{20}) = \beta_0 + \beta_1 \cdot log_{10}(concentration) + u_i
+$$
+Hierbij is $y_{45}$ de meting van de 0.45 micrometer filter en $y_{20}$ de meting van de 0.20 micrometer filter.
+De intercept $\beta_0$ is het verschil in metingen tussen de 0.45 micrometer en de 0.20 micrometer filter voor een gemiddelde concentratie.
+
+Een significante intercept kan erop wijzen dat er een invloed is van de filtergrootte ongeacht de gemeten concentratie.
+Een significante helling betekent dat het verschil in metingen tussen de filtergroottes afhangt van de gemeten concentratie.
+
+
+### random intercept model 
+
+Een random effects model waarbij de log{10}-concentratie van de elementen in functie van de filtergrootte wordt gemodelleerd. Als random-intercept wordt het gepaarde staal gebruikt.
+
+In dit model is het vooral het effect van filtergrootte die van belang is, de intercept is de schatting voor de 20µm-filter, de helling is de afwijking van de 45µm-filter ten opzichte van de 20µm-filter. D
+De formule van het model is:
+$$
+\log_{10}(y_{ij}) = \beta_0_{j} + \beta_1 \cdot filter_i  + u_{ij}
+$$
+Hierbij is $y_{ij}$ de meting van het $i$-de filter voor het $j$-de staal, $\beta_0_{j}$ de intercept voor het $j$-de staal.
+Hier zijn we vooral geïnteresseerd in het effect van de filtergrootte, dus de schatting van $\beta_1$. Indien $\beta_1$ significant is, dan is er een effect van de filtergrootte op de metingen.
+
+
+
+
 
 ## Analyse voor ieder element
 
