@@ -1,0 +1,119 @@
+
+analyse_element_simple_diff <-  function(data, chem_element = NULL) {
+  require("tidyverse")
+  require("patchwork")
+  model_summary <- NULL
+  plot_resid_diff <- NULL
+  formula <- NULL
+
+  data_el_pivot <- data |> dplyr::filter(element == chem_element) |> pull(wide)
+
+  diff_name <- paste0("diff_log10(", chem_element, ")")
+  mean_name <- paste0("mean_log10(", chem_element, ")")
+  data_el_pivot <- data_el_pivot[[1]] |>
+    mutate(element = chem_element,
+           !!diff_name := diff_log10_value,
+           !!mean_name := mean_log10_value)
+
+
+  minrange <- min(data_el_pivot$mean_log10_value, na.rm = TRUE)
+  maxrange <- max(data_el_pivot$mean_log10_value, na.rm = TRUE)
+
+  moddiff_formula <- as.formula(paste0("`", diff_name, "` ~ `", mean_name, "`"))
+
+  if(!all(is.finite(minrange)) || !all(is.finite(maxrange)) || minrange == maxrange) {
+    return(list(formula = moddiff_formula,
+                model_summary = NA,
+                plot_resid = NA,
+                plot_fit = NA,
+                min = NA,
+                max = NA))
+  }
+
+
+  # For expand.grid, we need to use a different approach with rlang
+  newdata_params <- list(seq(minrange, maxrange, length = 20))
+  names(newdata_params) <- mean_name  # Assign the name directly
+  newdata_diff <- do.call(expand.grid, newdata_params)
+
+  moddiff <- try(lm(moddiff_formula, data = data_el_pivot))
+  if (inherits(moddiff, "try-error")) {
+    return(list(moddiff = "Error in model"))
+  }
+  moddiff_summary <- summary(moddiff)
+
+
+  # RESIDUAL PLOTS
+  p_fit_res_diff <-
+    ggplot(data.frame(resid = resid(moddiff, type = "pe"), fit = fitted(moddiff)),
+           aes(x = fit, y = resid)) +
+    geom_abline(intercept = 0, slope = 0, linetype = "dashed") +
+    geom_smooth(method = "loess",formula = y ~ x) +
+    geom_point() +
+    labs(title = "Pearson residuals plot", x = "fitted", y = "pearson residuals")
+
+  p_res_hist_diff <- ggplot(data = data.frame(x = resid(moddiff, type = "pe")),
+                            aes(x = x)) + geom_histogram(bins = 20) +
+    labs(x = "Pearson Residuals", y = "Count")
+
+  p_res_qq_diff <- ggplot(data = data.frame(x = resid(moddiff, type = "pe")),
+                          aes(sample = x)) +
+    geom_qq() + geom_qq_line() +
+    labs(x = "theoretical quantiles", y = "sample quantiles")
+
+  plot_resid_diff <- (p_fit_res_diff | (p_res_hist_diff / p_res_qq_diff))
+
+
+  # residual criteria
+  data_conclusions <- nobs_discussion(data_el_pivot)
+
+  norm_conclusions <- normality_discussion(resid(moddiff, type = "pe"))
+
+  # # PREDICTION PLOTS
+  preddiff <- bind_cols(
+    newdata_diff,
+    predict(moddiff,
+            newdata = newdata_diff,
+            interval = "confidence",
+            level = 0.95,
+            se.fit = TRUE)$fit)
+
+  plottitle <- paste("Prediction plot for difference log10 values of", chem_element)
+
+  intercept <- coef(summary(moddiff))[1,1]
+  p_intercept <- coef(summary(moddiff))[1,4]
+  slope <- coef(summary(moddiff))[2,1]
+  p_slope <- coef(summary(moddiff))[2,4]
+
+  # Create the plot
+  x_min <- min(pull(preddiff, !!mean_name))
+  y_max <- max(preddiff$upr)
+
+  predplot_diff <- ggplot(preddiff, aes(x = .data[[rlang::as_name(mean_name)]], y = fit)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 0, color = "blue", linewidth = 1, linetype = "dashed") +
+    geom_line() +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+    labs(title = chem_element, x = "mean log10 value", y = "diff log10 value") +
+    annotate("text", x = x_min, y = y_max,
+             label = paste("Intercept:", round(intercept, 3), "(p =", round(p_intercept, 3), ")\n",
+                           "Slope:", round(slope, 3), "(p =", round(p_slope, 3), ")"),
+             hjust = 0, vjust = 1)
+
+  ## Prediction conclusions
+  # Check if the model is significant
+  model_conclusions <- trend_diff_discussion(moddiff_summary)
+
+
+  list(data = data_el_pivot,
+       formula = moddiff_formula,
+       model = moddiff_summary,
+       plot_resid = plot_resid_diff,
+       plot_pred = predplot_diff,
+       model_conclusions = list(data = data_conclusions,
+                                res = norm_conclusions,
+                                model = model_conclusions),
+       min =  minrange,
+       max= maxrange)
+}
+

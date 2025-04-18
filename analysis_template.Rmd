@@ -1,0 +1,115 @@
+---
+title: "analysis_template"
+author: "Pieter Verschelde"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Element `r element`
+
+
+#### Verschil in filtergrootte voor `r element` in functie van de concentratie
+
+**Modelformule:**
+
+
+```{r, results = 'asis'}
+cat(paste(as.character(analysis_diff$formula)[c(2,1,3)], collapse  = " "), "\n")
+model_ok <- !all(is.na(analysis_diff$model))
+```
+
+**Resultatentabel:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model))
+if (model_ok) {
+  analysis_diff$model$coefficients |>
+  add_significance_stars() |>
+  knitr::kable()
+}
+```
+
+**Residueel plot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model))
+if (model_ok){
+  print(analysis_diff$plot_resid)
+}
+```
+
+**Predictieplot:**
+
+```{r}
+model_ok <- !all(is.na(analysis_diff$model))
+if (model_ok){
+  print(analysis_diff$plot_pred)
+}
+
+```
+
+
+#### Analyse effect filtergroote op metingen van `r element` via een mixed model
+
+**Modelformule:**
+
+
+```{r, results = 'asis'}
+cat(paste(as.character(analysis_fmod$formula)[c(2,1,3)], collapse  = " "), "\n")
+model_ok <- !all(is.na(analysis_fmod$model))
+```
+
+**Resultatentabel:**
+
+
+```{r, results='asis'}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+   analysis_fmod$model$coefficients |>
+    as.data.frame() |>
+   add_significance_stars() |>
+   knitr::kable()
+}
+```
+
+**Residueel plot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+  print(analysis_fmod$plot_resid)
+}
+```
+
+**Predictieplot:**
+
+
+```{r}
+model_ok <- !all(is.na(analysis_fmod$model))
+if (model_ok) {
+  print(analysis_fmod$plot_pred)
+}
+
+```
+
+#### Conclusie
+
+```{r, results = 'asis'}
+
+mylist <- analysis_diff$model_conclusions
+
+try(cat("**Data verschilmodel**\n\n", mylist$data, "\n\n"))
+try(cat("**Residuals verschilmodel**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat("**Modelresultaten verchilmodel**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+cat("\n\n")
+
+mylist <- analysis_fmod$model_conclusions
+try(cat("**Data mixed model**\n\n", mylist$data, "\n\n"))
+try(cat("**Residuals mixed model**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat("**Modelresultaten mixed model**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+
+```
+
