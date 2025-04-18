@@ -13,6 +13,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       collapse = TRUE,
+                      cache = TRUE
                       comment = "#>")
 options(tidyverse.quiet = TRUE)
 
@@ -25,6 +26,7 @@ library(targets)
 library(tarchetypes)
 library(tidyverse)
 library(knitr)
+library(kableExtra)
 tar_source("source/add_significance_stars.R")
 data <- tar_read(data_all, store = "_targets")
 ```
@@ -59,9 +61,9 @@ Er wordt in dit document gekozen om de analyse te beperken tot het effect van fi
 
 Voor ieder element dat gemeten is op de IC en ICP toestellen worden 2 analyses uitgevoerd:
 
-### verschil van de log{10}-concentraties
+### verschil van de log~10~-concentraties
 
-Het verschil van de log{10}-concentraties van alle elementen in functie van de gemiddelde log{10}-concentratie van beide filters voor ieder projectstaal.
+Het verschil van de log~10~-concentraties van alle elementen in functie van de gemiddelde log{10}-concentratie van beide filters voor ieder projectstaal.
 De formule van het model is:
 $$
 \log_{10}(y_{45}) - \log_{10}(y_{20}) = \beta_0 + \beta_1 \cdot log_{10}(concentration) + u_i
@@ -75,18 +77,139 @@ Een significante helling betekent dat het verschil in metingen tussen de filterg
 
 ### random intercept model 
 
-Een random effects model waarbij de log{10}-concentratie van de elementen in functie van de filtergrootte wordt gemodelleerd. Als random-intercept wordt het gepaarde staal gebruikt.
+Een random effects model waarbij de log{10}-concentratie van de elementen in functie van de filtergrootte wordt gemodelleerd. Als random-intercept wordt het gepaarde staal gebruikt. Hier wordt geen verband meer met de concentratie meegenomen, omdat dit al vervat zit in de gepaarde metingen.
 
 In dit model is het vooral het effect van filtergrootte die van belang is, de intercept is de schatting voor de 20µm-filter, de helling is de afwijking van de 45µm-filter ten opzichte van de 20µm-filter. D
 De formule van het model is:
 $$
-\log_{10}(y_{ij}) = \beta_0_{j} + \beta_1 \cdot filter_i  + u_{ij}
+\log_{10}(y_{ij}) = \beta_{0j} + \beta_1 \cdot \text{filter}_i + u_{ij}
 $$
-Hierbij is $y_{ij}$ de meting van het $i$-de filter voor het $j$-de staal, $\beta_0_{j}$ de intercept voor het $j$-de staal.
+Hierbij is $y_{ij}$ de meting van het $i$-de filter voor het $j$-de staal, $\beta_{0j}$ de intercept voor het $j$-de staal.
 Hier zijn we vooral geïnteresseerd in het effect van de filtergrootte, dus de schatting van $\beta_1$. Indien $\beta_1$ significant is, dan is er een effect van de filtergrootte op de metingen.
 
+## Algemene conclusies
+
+In deze tabel staat per element of het effect van de filtergrootte significant is in de analyse van het verschil van de log~10~-concentraties en in de random intercept model. Hoe donkerder groen de cel minder aanwijzing er is tot een verschil in metingen tussen de 0.45 micrometer en de 0.20 micrometer filter. Hoe donkerder rood de cel, hoe meer aanwijzing er is tot een verschil in metingen tussen de 0.45 micrometer en de 0.20 micrometer filter.
+
+Ook de inschatting of er voldoende data voorhanden is om een model te schatten staat in de tabel, zodat geen conclusies getrokken kunnen worden uit de resultaten waarbij te weinig data is. 
+
+```{r analyse, echo=FALSE, message = FALSE, results='asis'}  
+
+elements <- data |> pull(element) |> unique()
+table_overview <- 
+  tibble(element = elements,
+         n_samp = NA,
+         diff_bias = NA,
+         diff_conc = NA,
+         fmod_bias = NA,
+         fmod_data = NA)
+
+# Refactored approach using functional programming
+table_overview <- elements %>%
+  map_dfr(function(elem) {
+    
+    # Function to calculate p-values of fmod coefficients
+    get_pval <- function(x) 2 * pnorm(-abs(x))
+    
+    # Read the data for this element
+    diff <- tar_read_raw(paste0("models_simple_diff_", elem), store = "_targets")
+    fmod <- tar_read_raw(paste0("models_simple_fmod_", elem), store = "_targets")
+    
+    # Calculate values
+    n_samp <- nrow(diff$data)
+    
+    # Determine colors based on conditions
+    col_n_samp <- case_when(
+      n_samp >= 100 ~ "darkgreen",
+      n_samp >= 30  ~ "lightgreen",
+      n_samp >= 10  ~ "yellow",
+      n_samp >= 5   ~ "orange",
+      TRUE          ~ "red"
+    )
+    # intercept
+    if(!all(is.na(diff$model))) {
+      col_diff_bias <- case_when(
+        diff$model$coefficients[1,4] < 0.001 ~ "red",
+        diff$model$coefficients[1,4] < 0.01  ~ "orange",
+        diff$model$coefficients[1,4] < 0.05  ~ "yellow",
+        diff$model$coefficients[1,4] < 0.1   ~ "lightgreen",
+        TRUE                                 ~ "darkgreen"
+      )
+      val_diff_bias <- ifelse(diff$model$coefficients[1,1] > 0, "+", "-")
+    
+      # slope
+      col_diff_conc <- case_when(
+        diff$model$coefficients[2,4] < 0.001 ~ "red",
+        diff$model$coefficients[2,4] < 0.01  ~ "orange",
+        diff$model$coefficients[2,4] < 0.05  ~ "yellow",
+        diff$model$coefficients[2,4] < 0.1   ~ "lightgreen",
+        TRUE                                 ~ "darkgreen"
+      )
+      val_diff_conc <- ifelse(diff$model$coefficients[2,1] > 0, "+", "-")
+    } else {
+      col_diff_bias <- col_diff_conc <- "grey"
+      val_diff_bias <- val_diff_conc <- NA_character_  
+    
+    }
+    
+    if(!all(is.na(fmod$model))) {
+      fmod$model$coefficients <- fmod$model$coefficients |> 
+          bind_cols(get_pval(fmod$model$coefficients[,3]))
+      col_fmod_filter <- case_when(
+        fmod$model$coefficients[2,4] < 0.001 ~ "red",
+        fmod$model$coefficients[2,4] < 0.01  ~ "orange",
+        fmod$model$coefficients[2,4] < 0.05  ~ "yellow",
+        fmod$model$coefficients[2,4] < 0.1   ~ "lightgreen",
+        TRUE                                 ~ "darkgreen"
+      )
+      val_fmod_filter <- ifelse(fmod$model$coefficients[2,1] > 0, "+", "-")
+    } else {
+      col_fmod_filter <- "grey"
+      val_fmod_filter <- NA_character_
+    }
+    
+    # Return a one-row tibble with all the calculated values
+    tibble(
+      element = elem,
+      n_samp = n_samp,
+      val_diff_bias = val_diff_bias,
+      val_diff_conc = val_diff_conc,
+      val_fmod_filter = val_fmod_filter,
+      col_n_samp = col_n_samp,
+      col_diff_bias = col_diff_bias,
+      col_diff_conc = col_diff_conc,
+      col_fmod_filter = col_fmod_filter
+    )
+  })
+
+# Create a function to generate HTML with colored background
+color_cell <- function(value, color) {
+  sprintf("<span style='display:block; background-color:%s; padding:3px;'>%s</span>", color, value)
+}
+
+# Apply the color formatting to each cell
+formatted_table <- table_overview %>%
+  mutate(
+    n_samp = mapply(color_cell, n_samp, col_n_samp),
+    val_diff_bias = mapply(color_cell, val_diff_bias, col_diff_bias),
+    val_diff_conc = mapply(color_cell, val_diff_conc, col_diff_conc),
+    val_fmod_filter = mapply(color_cell, val_fmod_filter, col_fmod_filter)
+  ) %>%
+  select("element", "n_samp", "val_diff_bias", "val_diff_conc", "val_fmod_filter")
+
+# Generate the markdown table with HTML styling
+caption <- paste("Overzicht Elementanalyse. ",
+                 "De tabel toont het aantal monsters en de significantie van het intercept en de concentratie voor het model op de verschillen, en het effect van filtereffecten voor elk element in het gemengde model. ",
+                 "De kleuren geven het significantieniveau aan, waarbij rood hoge significantie aangeeft en groen lage significantie.")
+markdown_table <- formatted_table %>%
+  kable(format = "html", escape = FALSE, caption = caption) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+
+# Print the markdown table
+markdown_table
 
 
+```
 
 
 ## Analyse voor ieder element

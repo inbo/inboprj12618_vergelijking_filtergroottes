@@ -42,6 +42,7 @@ analyse_element_simple_diff <-  function(data, chem_element = NULL) {
   }
   moddiff_summary <- summary(moddiff)
 
+
   # RESIDUAL PLOTS
   p_fit_res_diff <-
     ggplot(data.frame(resid = resid(moddiff, type = "pe"), fit = fitted(moddiff)),
@@ -65,6 +66,7 @@ analyse_element_simple_diff <-  function(data, chem_element = NULL) {
 
   # residual criteria
   data_conclusions <- nobs_discussion(data_el_pivot)
+
   norm_conclusions <- normality_discussion(resid(moddiff, type = "pe"))
 
   # # PREDICTION PLOTS
@@ -83,13 +85,17 @@ analyse_element_simple_diff <-  function(data, chem_element = NULL) {
   slope <- coef(summary(moddiff))[2,1]
   p_slope <- coef(summary(moddiff))[2,4]
 
-  predplot_diff <- ggplot(preddiff, aes(x = mean_log10_value, y = fit)) +
+  # Create the plot
+  x_min <- min(pull(preddiff, !!mean_name))
+  y_max <- max(preddiff$upr)
+
+  predplot_diff <- ggplot(preddiff, aes(x = .data[[rlang::as_name(mean_name)]], y = fit)) +
     geom_point() +
     geom_abline(intercept = 0, slope = 0, color = "blue", linewidth = 1, linetype = "dashed") +
     geom_line() +
     geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
     labs(title = chem_element, x = "mean log10 value", y = "diff log10 value") +
-    annotate("text", x = min(preddiff$mean_log10_value), y = max(max(preddiff$upr)),
+    annotate("text", x = x_min, y = y_max,
              label = paste("Intercept:", round(intercept, 3), "(p =", round(p_intercept, 3), ")\n",
                            "Slope:", round(slope, 3), "(p =", round(p_slope, 3), ")"),
              hjust = 0, vjust = 1)

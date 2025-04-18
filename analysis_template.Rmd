@@ -15,16 +15,16 @@ output: html_document
 
 ```{r, results = 'asis'}
 cat(paste(as.character(analysis_diff$formula)[c(2,1,3)], collapse  = " "), "\n")
-model_ok <- !all(is.na(analysis_diff$model_summary))
+model_ok <- !all(is.na(analysis_diff$model))
 ```
 
 **Resultatentabel:**
 
 
 ```{r}
-model_ok <- !all(is.na(analysis_diff$model_summary))
+model_ok <- !all(is.na(analysis_diff$model))
 if (model_ok) {
-  analysis_diff$model_summary$coefficients |>
+  analysis_diff$model$coefficients |>
   add_significance_stars() |>
   knitr::kable()
 }
@@ -34,7 +34,7 @@ if (model_ok) {
 
 
 ```{r}
-model_ok <- !all(is.na(analysis_diff$model_summary))
+model_ok <- !all(is.na(analysis_diff$model))
 if (model_ok){
   print(analysis_diff$plot_resid)
 }
@@ -43,15 +43,15 @@ if (model_ok){
 **Predictieplot:**
 
 ```{r}
-model_ok <- !all(is.na(analysis_diff$model_summary))
+model_ok <- !all(is.na(analysis_diff$model))
 if (model_ok){
-  print(analysis_diff$plot_fit)
+  print(analysis_diff$plot_pred)
 }
 
 ```
 
 
-#### Analyse effect filtergroote op metingen van `r element`
+#### Analyse effect filtergroote op metingen van `r element` via een mixed model
 
 **Modelformule:**
 
@@ -97,6 +97,19 @@ if (model_ok) {
 
 #### Conclusie
 
-```{r}
+```{r, results = 'asis'}
+
+mylist <- analysis_diff$model_conclusions
+
+try(cat("**Data verschilmodel**\n\n", mylist$data, "\n\n"))
+try(cat("**Residuals verschilmodel**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat("**Modelresultaten verchilmodel**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+cat("\n\n")
+
+mylist <- analysis_fmod$model_conclusions
+try(cat("**Data mixed model**\n\n", mylist$data, "\n\n"))
+try(cat("**Residuals mixed model**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat("**Modelresultaten mixed model**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+
 ```
 
