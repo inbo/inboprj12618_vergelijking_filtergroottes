@@ -95,21 +95,34 @@ if (model_ok) {
 
 ```
 
-#### Conclusie
+#### Conclusie en interpretatie
 
 ```{r, results = 'asis'}
 
-mylist <- analysis_diff$model_conclusions
+force(mylist <- analysis_diff$model_conclusions)
 
-try(cat("**Data verschilmodel**\n\n", mylist$data, "\n\n"))
-try(cat("**Residuals verschilmodel**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
-try(cat("**Modelresultaten verchilmodel**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+#try(
+#  cat(interpretation |> filter(key == element) |> pull(value), "\n\n")
+ # )
+cat("**Verschilmodel (automatisch gegenereerd)**\n\n")
+try(cat(mylist$data, "\n\n"))
+try(cat( gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat( gsub("\n", "  \n", mylist$model), "\n"))  
 cat("\n\n")
 
+cat("**Mixed model (automatisch gegenereerd)**\n\n")
 mylist <- analysis_fmod$model_conclusions
-try(cat("**Data mixed model**\n\n", mylist$data, "\n\n"))
-try(cat("**Residuals mixed model**\n\n", gsub("\n", "  \n", mylist$res), "\n\n"))
-try(cat("**Modelresultaten mixed model**\n\n", gsub("\n", "  \n", mylist$model), "\n"))  
+try(cat(mylist$data, "\n\n"))
+try(cat(gsub("\n", "  \n", mylist$res), "\n\n"))
+try(cat(gsub("\n", "  \n", mylist$model), "\n"))  
+
+cat("\n\n")
 
 ```
 
+```{r, results = 'asis'}
+cat('<div style="padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-left: 5px solid #2c3e50; background-color: #FFF9C4;">\n')
+try(cat("<strong>Algemene conclusie voor ", element, "</strong>\n\n", sep = ""))
+try(cat("<p>", interpretation |> filter(key == element) |> pull(value), "</p>\n", sep = ""))
+cat('</div>\n')
+```

@@ -6,6 +6,7 @@ output:
     toc_float: true
     number_sections: true
     fig_caption: true
+    css: styles.css
 #   code_folding: hide
 ---
 
@@ -13,7 +14,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       collapse = TRUE,
-                      cache = TRUE
+                      cache = TRUE,
                       comment = "#>")
 options(tidyverse.quiet = TRUE)
 
@@ -21,14 +22,47 @@ options(tidyverse.quiet = TRUE)
 
 ## Inleiding
 
-```{r load_data}
+```{r loaddata, cache=FALSE, message=FALSE}
 library(targets)
 library(tarchetypes)
 library(tidyverse)
 library(knitr)
 library(kableExtra)
-tar_source("source/add_significance_stars.R")
+try(tar_source("source/add_significance_stars.R"))
+try(source("source/add_significance_stars.R"))
 data <- tar_read(data_all, store = "_targets")
+
+
+read_section_file <- function(file_path) {
+  # Read the entire file as a single string
+  content <- readLines(file_path, warn = FALSE)
+  content <- paste(content, collapse = "\n")
+  
+  # Split the content at each #### marker
+  sections <- strsplit(content, "####")[[1]]
+  
+  # Remove the first element if it's empty (which it likely is)
+  sections <- sections[sections != ""]
+  
+  # Create a data frame to store the key-value pairs
+  result <- data.frame(key = character(), value = character(), stringsAsFactors = FALSE)
+  
+  # Process each section
+  for (section in sections) {
+    # Extract the key (first line) and the value (remaining lines)
+    lines <- strsplit(trimws(section), "\n")[[1]]
+    key <- trimws(lines[1])
+    value <- trimws(paste(lines[-1], collapse = "\n"))
+    
+    # Add to the result data frame
+    result <- rbind(result, data.frame(key = key, value = value, stringsAsFactors = FALSE))
+  }
+  
+  return(result)
+}
+
+#LET OP! Indien interpretatie verandert, dan moet de cache directory leeggemaakt worden
+interpretation <- read_section_file("interpretation/interpretation_250513.md")
 ```
 
 
@@ -195,7 +229,7 @@ formatted_table <- table_overview %>%
     val_diff_conc = mapply(color_cell, val_diff_conc, col_diff_conc),
     val_fmod_filter = mapply(color_cell, val_fmod_filter, col_fmod_filter)
   ) %>%
-  select("element", "n_samp", "val_diff_bias", "val_diff_conc", "val_fmod_filter")
+  dplyr::select("element", "n_samp", "val_diff_bias", "val_diff_conc", "val_fmod_filter")
 
 # Generate the markdown table with HTML styling
 caption <- paste("Overzicht Elementanalyse. ",
@@ -214,19 +248,22 @@ markdown_table
 
 ## Analyse voor ieder element
 
-```{r analyseEl, echo=FALSE, message = FALSE, results='asis'}
-elements <- data |> pull(element) |> unique()
-for (element in elements) {
-  target_name_diff <- paste0("models_simple_diff_", element)
-  target_name_fmod <- paste0("models_simple_fmod_", element)
+```{r analyseEl, echo=FALSE, message = FALSE, results='asis', cache=FALSE}
+elements <- data |> dplyr::pull(element) |> unique()
+for (el in elements) {
+  target_name_diff <- paste0("models_simple_diff_", el)
+  target_name_fmod <- paste0("models_simple_fmod_", el)
   element_analysis_diff <- tar_read_raw(target_name_diff, store = "_targets")
   element_analysis_fmod <- tar_read_raw(target_name_fmod, store = "_targets")
-  res <- knit_child('analysis_template.Rmd',
-                    envir = list(element = element,
-                                 analysis_diff = element_analysis_diff,
-                                 analysis_fmod = element_analysis_fmod),
+  element <- el
+  analysis_diff <- element_analysis_diff
+  analysis_fmod <- element_analysis_fmod
+  res           <- knit_child('analysis_template.Rmd',
+  #                   envir = list(element = el,
+  #                                analysis_diff = element_analysis_diff,
+  #                                analysis_fmod = element_analysis_fmod),
                     quiet = TRUE)
-  cat(res, sep = '\n')
+  cat(res, sep = '\n\n')
 }
 
 ```

@@ -14,7 +14,7 @@ create_simple_data <- function(data) {
     mutate(value_orig = value,
            value = ifelse(value_orig < 0, 0.0001, value_orig),
            log10_value = log10(value)) |>
-    select(lab_id, element, value, log10_value,
+    dplyr::select(lab_id, element, value, log10_value,
            filter, matrix, is_below_loq, all_below_loq)
 
   # Create the wide format data

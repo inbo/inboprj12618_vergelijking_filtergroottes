@@ -1,4 +1,5 @@
-read_gsheet_data <- function(icp_key, ic_key, sheet, lod_sheet){
+read_gsheet_data <- function(icp_key, ic_key, removals_key,
+                             sheet, lod_sheet){
 
   #lees detectielimieten
   detection_limits <-
@@ -9,7 +10,7 @@ read_gsheet_data <- function(icp_key, ic_key, sheet, lod_sheet){
 
   #lees icp data
   data_icp <- read_sheet(icp_key, sheet) |>
-    select(-`Test number`) |>
+    dplyr::select(-"Test number") |>
     mutate(instrument = "ICP",
            row_nr = paste0("ICP", sprintf("%04d", row_number()))) |>
     pivot_longer(cols = Al:Zn, names_to = "element", values_to = "value") |>
@@ -33,6 +34,22 @@ read_gsheet_data <- function(icp_key, ic_key, sheet, lod_sheet){
                                   "f_45_micron",
                                   NA_character_)),
            umid = interaction(Labo_ID, instrument, element))
+
+  data_to_remove <- read_sheet(removals_key, "Onlogische waarden") |>
+    mutate(Filter = ifelse(Filter == "0,20 µm",
+                           "f_20_micron",
+                           ifelse(Filter == "0,45 µm",
+                                  "f_45_micron",
+                                  NA_character_)),
+           umid = interaction(Identifier, Methode, Variabel))
+  if (!all(data_to_remove$umid %in% c(data_ic$umid, data_icp$umid))) {
+    warning("Not all data flagged in removals data are present in the data")
+  }
+  data_icp <- data_icp |>
+    anti_join(data_to_remove, by = "umid")
+
+  data_ic <- data_ic |>
+    anti_join(data_to_remove, by = "umid")
 
   return(list(icp = data_icp, ic = data_ic, loq = detection_limits))
 }

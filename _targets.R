@@ -11,6 +11,7 @@ library(patchwork) #for ggplot2 multiplot
 library(lme4)
 library(merTools) #for prediction intervals
 conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::filter)
 
 ## SOME interesting functions to run:
 
@@ -55,6 +56,7 @@ list(
     read_gsheet_data(
       icp_key = "1-Arczbqcx46s9RO4Fmn77Jh0aG4C2aYPdqo18CqREvc",
       ic_key = "1m_bETGzGrPd49cpCtjYoiGH9cantpY3_2tIBF95DxlM",
+      removals_key = "1WHwTYnOM0MmKoq6bsJ-GB6twoh0te3Caqsfg838zsdQ",
       sheet = "QRY Dataset",
       lod_sheet = "Detectielimieten")
   ),
